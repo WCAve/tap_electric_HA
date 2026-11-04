@@ -1,4 +1,4 @@
-"""Sensors for the active Tap Electric charging session."""
+"""Sensors for Tap Electric: the live session plus monthly/lifetime stats."""
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -20,8 +20,21 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
-from .coordinator import TapCoordinator
+from .coordinator import TapCoordinator, TapInsightsCoordinator
 
+EUR = "EUR"
+
+
+def _device(entry: ConfigEntry) -> DeviceInfo:
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        name="Tap Electric",
+        manufacturer="Tap Electric",
+        model="Charging session",
+    )
+
+
+# ---------------- live session sensors (/4.0/home) ----------------
 
 def _loc(session: dict | None, key: str) -> Any:
     if not session:
@@ -46,109 +59,102 @@ def _price_per_kwh(session: dict | None) -> Any:
 
 @dataclass(frozen=True, kw_only=True)
 class TapSensorDescription(SensorEntityDescription):
-    """Sensor description with a value extractor over the active session."""
-
     value_fn: Callable[[dict | None], Any]
 
 
 SENSORS: tuple[TapSensorDescription, ...] = (
     TapSensorDescription(
-        key="status",
-        name="Charging status",
-        icon="mdi:ev-station",
-        value_fn=lambda s: (s.get("status") if s else "idle"),
-    ),
+        key="status", name="Charging status", icon="mdi:ev-station",
+        value_fn=lambda s: (s.get("status") if s else "idle")),
     TapSensorDescription(
-        key="energy",
-        name="Session energy",
-        device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL_INCREASING,
+        key="energy", name="Session energy",
+        device_class=SensorDeviceClass.ENERGY, state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        value_fn=lambda s: (s.get("energy_kwh") if s else 0),
-    ),
+        value_fn=lambda s: (s.get("energy_kwh") if s else 0)),
     TapSensorDescription(
-        key="power",
-        name="Charging power",
-        device_class=SensorDeviceClass.POWER,
-        state_class=SensorStateClass.MEASUREMENT,
+        key="power", name="Charging power",
+        device_class=SensorDeviceClass.POWER, state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
-        value_fn=lambda s: (s.get("speed_kw") if s else 0),
-    ),
+        value_fn=lambda s: (s.get("speed_kw") if s else 0)),
     TapSensorDescription(
-        key="cost",
-        name="Session cost",
-        device_class=SensorDeviceClass.MONETARY,
-        native_unit_of_measurement="EUR",
-        icon="mdi:cash",
-        value_fn=lambda s: (round((s.get("current_costs") or 0) / 100, 2) if s else 0),
-    ),
+        key="cost", name="Session cost",
+        device_class=SensorDeviceClass.MONETARY, native_unit_of_measurement=EUR, icon="mdi:cash",
+        value_fn=lambda s: (round((s.get("current_costs") or 0) / 100, 2) if s else 0)),
     TapSensorDescription(
-        key="price_per_kwh",
-        name="Price per kWh",
-        native_unit_of_measurement="EUR/kWh",
-        icon="mdi:tag",
-        value_fn=_price_per_kwh,
-    ),
+        key="price_per_kwh", name="Price per kWh",
+        native_unit_of_measurement="EUR/kWh", icon="mdi:tag", value_fn=_price_per_kwh),
     TapSensorDescription(
-        key="charger",
-        name="Charger",
-        icon="mdi:ev-plug-type2",
-        value_fn=lambda s: _loc(s, "charger_name"),
-    ),
+        key="charger", name="Charger", icon="mdi:ev-plug-type2",
+        value_fn=lambda s: _loc(s, "charger_name")),
     TapSensorDescription(
-        key="operator",
-        name="Operator",
-        icon="mdi:domain",
-        value_fn=lambda s: _loc(s, "operator_name"),
-    ),
+        key="operator", name="Operator", icon="mdi:domain",
+        value_fn=lambda s: _loc(s, "operator_name")),
     TapSensorDescription(
-        key="location",
-        name="Location",
-        icon="mdi:map-marker",
-        value_fn=lambda s: (
-            ", ".join(p for p in (_loc(s, "address"), _loc(s, "city")) if p) or None
-        ),
-    ),
+        key="location", name="Location", icon="mdi:map-marker",
+        value_fn=lambda s: (", ".join(p for p in (_loc(s, "address"), _loc(s, "city")) if p) or None)),
     TapSensorDescription(
-        key="started",
-        name="Session start",
-        device_class=SensorDeviceClass.TIMESTAMP,
-        icon="mdi:clock-start",
-        value_fn=_start,
-    ),
+        key="started", name="Session start",
+        device_class=SensorDeviceClass.TIMESTAMP, icon="mdi:clock-start", value_fn=_start),
 )
+
+
+# ---------------- insights sensors (/1.0/insights) ----------------
+
+@dataclass(frozen=True, kw_only=True)
+class TapInsightsDescription(SensorEntityDescription):
+    period: str  # this_month | last_month | lifetime
+    metric: str  # sessions | energy | cost | avg
+
+
+def _build_insights() -> list[TapInsightsDescription]:
+    periods = [("this_month", "This month"), ("last_month", "Last month"), ("lifetime", "Lifetime")]
+    out: list[TapInsightsDescription] = []
+    for pkey, plabel in periods:
+        out.append(TapInsightsDescription(
+            key=f"{pkey}_sessions", name=f"{plabel} sessions", icon="mdi:counter",
+            state_class=SensorStateClass.MEASUREMENT, period=pkey, metric="sessions"))
+        out.append(TapInsightsDescription(
+            key=f"{pkey}_energy", name=f"{plabel} energy",
+            device_class=SensorDeviceClass.ENERGY,
+            native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+            state_class=SensorStateClass.TOTAL, suggested_display_precision=1,
+            period=pkey, metric="energy"))
+        out.append(TapInsightsDescription(
+            key=f"{pkey}_spend", name=f"{plabel} spend",
+            device_class=SensorDeviceClass.MONETARY, native_unit_of_measurement=EUR,
+            state_class=SensorStateClass.TOTAL, suggested_display_precision=2,
+            icon="mdi:cash-multiple", period=pkey, metric="cost"))
+        out.append(TapInsightsDescription(
+            key=f"{pkey}_avg_price", name=f"{plabel} avg price",
+            native_unit_of_measurement="EUR/kWh", icon="mdi:tag-multiple",
+            state_class=SensorStateClass.MEASUREMENT, suggested_display_precision=3,
+            period=pkey, metric="avg"))
+    return out
+
+
+INSIGHTS_SENSORS: tuple[TapInsightsDescription, ...] = tuple(_build_insights())
 
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    coordinator: TapCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities(
-        TapSensor(coordinator, entry, description) for description in SENSORS
-    )
+    data = hass.data[DOMAIN][entry.entry_id]
+    live: TapCoordinator = data["live"]
+    insights: TapInsightsCoordinator = data["insights"]
+    entities: list[SensorEntity] = [TapSensor(live, entry, d) for d in SENSORS]
+    entities += [TapInsightsSensor(insights, entry, d) for d in INSIGHTS_SENSORS]
+    async_add_entities(entities)
 
 
 class TapSensor(CoordinatorEntity[TapCoordinator], SensorEntity):
-    """A sensor reflecting the primary active charging session."""
-
     _attr_has_entity_name = True
     entity_description: TapSensorDescription
 
-    def __init__(
-        self,
-        coordinator: TapCoordinator,
-        entry: ConfigEntry,
-        description: TapSensorDescription,
-    ) -> None:
+    def __init__(self, coordinator, entry, description) -> None:
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name="Tap Electric",
-            manufacturer="Tap Electric",
-            model="Charging session",
-        )
+        self._attr_device_info = _device(entry)
 
     @property
     def _session(self) -> dict | None:
@@ -178,3 +184,20 @@ class TapSensor(CoordinatorEntity[TapCoordinator], SensorEntity):
             "is_stale": session.get("is_stale"),
             "next_update_expected": session.get("next_update_expected"),
         }
+
+
+class TapInsightsSensor(CoordinatorEntity[TapInsightsCoordinator], SensorEntity):
+    _attr_has_entity_name = True
+    entity_description: TapInsightsDescription
+
+    def __init__(self, coordinator, entry, description) -> None:
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        self._attr_device_info = _device(entry)
+
+    @property
+    def native_value(self) -> Any:
+        data = self.coordinator.data or {}
+        period = data.get(self.entity_description.period) or {}
+        return period.get(self.entity_description.metric)

@@ -216,6 +216,9 @@ class TapElectricClient:
             raise TapApiError("unexpected home payload")
         return data
 
+    async def async_get_insights(self) -> Any:
+        return await self._get("/1.0/insights")
+
     async def async_validate(self) -> None:
         await self._ensure_token()
         await self.async_fetch_account()

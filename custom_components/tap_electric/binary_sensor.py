@@ -18,7 +18,7 @@ from .coordinator import TapCoordinator
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    coordinator: TapCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator: TapCoordinator = hass.data[DOMAIN][entry.entry_id]["live"]
     async_add_entities([TapChargingBinarySensor(coordinator, entry)])
 
 
