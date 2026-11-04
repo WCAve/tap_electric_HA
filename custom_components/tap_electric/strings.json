@@ -1,0 +1,20 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Tap Electric",
+        "description": "Paste the refresh token captured from the Tap app (see README).",
+        "data": { "refresh_token": "Refresh token" }
+      }
+    },
+    "error": {
+      "invalid_token": "That refresh token was rejected. Capture a fresh one.",
+      "cannot_connect": "Could not reach the Tap Electric API.",
+      "unknown": "Unexpected error."
+    },
+    "abort": { "already_configured": "This Tap Electric account is already set up." }
+  },
+  "options": {
+    "step": { "init": { "data": { "scan_interval": "Poll interval (seconds)" } } }
+  }
+}
