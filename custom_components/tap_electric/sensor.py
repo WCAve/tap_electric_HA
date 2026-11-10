@@ -23,6 +23,7 @@ from .const import DOMAIN
 from .coordinator import TapCoordinator, TapInsightsCoordinator
 
 EUR = "EUR"
+NOT_CHARGING = "Not charging"
 
 
 def _device(entry: ConfigEntry) -> DeviceInfo:
@@ -42,19 +43,40 @@ def _loc(session: dict | None, key: str) -> Any:
     return (session.get("location_details") or {}).get(key)
 
 
-def _start(session: dict | None) -> Any:
+def _text_loc(session: dict | None, key: str) -> str:
     if not session:
-        return None
+        return NOT_CHARGING
+    return _loc(session, key) or NOT_CHARGING
+
+
+def _location_text(session: dict | None) -> str:
+    if not session:
+        return NOT_CHARGING
+    parts = [p for p in (_loc(session, "address"), _loc(session, "city")) if p]
+    return ", ".join(parts) if parts else NOT_CHARGING
+
+
+def _start_text(session: dict | None) -> str:
+    if not session:
+        return NOT_CHARGING
     raw = session.get("start_date_time") or session.get("created_date_time")
-    return dt_util.parse_datetime(raw) if raw else None
+    dt = dt_util.parse_datetime(raw) if raw else None
+    if not dt:
+        return NOT_CHARGING
+    local = dt_util.as_local(dt)
+    if local.date() == dt_util.now().date():
+        return local.strftime("%H:%M")
+    return local.strftime("%d %b %H:%M")
 
 
-def _price_per_kwh(session: dict | None) -> Any:
+def _price_text(session: dict | None) -> str:
     if not session:
-        return None
+        return NOT_CHARGING
     tariff = (session.get("payment_details") or {}).get("session_tariff") or {}
     cents = tariff.get("price_per_kwh")
-    return round(cents / 100, 2) if cents is not None else None
+    if cents is None:
+        return NOT_CHARGING
+    return f"€{cents / 100:.3f}/kWh"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -65,7 +87,7 @@ class TapSensorDescription(SensorEntityDescription):
 SENSORS: tuple[TapSensorDescription, ...] = (
     TapSensorDescription(
         key="status", name="Charging status", icon="mdi:ev-station",
-        value_fn=lambda s: (s.get("status") if s else "idle")),
+        value_fn=lambda s: (s.get("status") if s else NOT_CHARGING)),
     TapSensorDescription(
         key="energy", name="Session energy",
         device_class=SensorDeviceClass.ENERGY, state_class=SensorStateClass.TOTAL_INCREASING,
@@ -81,20 +103,20 @@ SENSORS: tuple[TapSensorDescription, ...] = (
         device_class=SensorDeviceClass.MONETARY, native_unit_of_measurement=EUR, icon="mdi:cash",
         value_fn=lambda s: (round((s.get("current_costs") or 0) / 100, 2) if s else 0)),
     TapSensorDescription(
-        key="price_per_kwh", name="Price per kWh",
-        native_unit_of_measurement="EUR/kWh", icon="mdi:tag", value_fn=_price_per_kwh),
+        key="price_per_kwh", name="Price per kWh", icon="mdi:tag",
+        value_fn=_price_text),
     TapSensorDescription(
         key="charger", name="Charger", icon="mdi:ev-plug-type2",
-        value_fn=lambda s: _loc(s, "charger_name")),
+        value_fn=lambda s: _text_loc(s, "charger_name")),
     TapSensorDescription(
         key="operator", name="Operator", icon="mdi:domain",
-        value_fn=lambda s: _loc(s, "operator_name")),
+        value_fn=lambda s: _text_loc(s, "operator_name")),
     TapSensorDescription(
         key="location", name="Location", icon="mdi:map-marker",
-        value_fn=lambda s: (", ".join(p for p in (_loc(s, "address"), _loc(s, "city")) if p) or None)),
+        value_fn=_location_text),
     TapSensorDescription(
-        key="started", name="Session start",
-        device_class=SensorDeviceClass.TIMESTAMP, icon="mdi:clock-start", value_fn=_start),
+        key="started", name="Session start", icon="mdi:clock-start",
+        value_fn=_start_text),
 )
 
 
