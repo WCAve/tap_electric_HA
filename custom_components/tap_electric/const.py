@@ -18,5 +18,7 @@ USER_AGENT = "Dart/3.12 (dart:io)"
 CONF_REFRESH_TOKEN = "refresh_token"
 CONF_SCAN_INTERVAL = "scan_interval"
 DEFAULT_SCAN_INTERVAL = 60  # seconds
+CONF_IDLE_SCAN_INTERVAL = "idle_scan_interval"
+DEFAULT_IDLE_SCAN_INTERVAL = 300  # seconds (slower polling when not charging)
 CONF_NOTIFY_ENABLED = "notify_enabled"
 CONF_NOTIFY_TARGETS = "notify_targets"

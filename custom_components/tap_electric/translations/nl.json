@@ -1,0 +1,39 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Tap Electric",
+        "description": "Plak een toegangstoken voor je Tap-account (zie README / CAPTURE_TOKEN.md).",
+        "data": { "refresh_token": "Toegangstoken" }
+      },
+      "reauth_confirm": {
+        "title": "Opnieuw aanmelden bij Tap Electric",
+        "description": "Je toegangstoken is verlopen of ingetrokken. Plak een nieuw token (zie CAPTURE_TOKEN.md).",
+        "data": { "refresh_token": "Toegangstoken" }
+      }
+    },
+    "error": {
+      "invalid_token": "Dat token is geweigerd. Haal een nieuw token op.",
+      "cannot_connect": "Kan de Tap Electric API niet bereiken.",
+      "unknown": "Onverwachte fout."
+    },
+    "abort": {
+      "already_configured": "Dit Tap Electric-account is al ingesteld.",
+      "reauth_successful": "Opnieuw aanmelden geslaagd."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Tap Electric-opties",
+        "description": "Laadmeldingen werken alleen op Android. Schakel ze in en kies een of meer apparaten met de companion-app.",
+        "data": {
+          "scan_interval": "Pollinterval tijdens het laden (seconden)",
+          "idle_scan_interval": "Pollinterval in rust (seconden)",
+          "notify_enabled": "Stuur live laadmeldingen",
+          "notify_targets": "Stuur naar deze apparaten"
+        }
+      }
+    }
+  }
+}

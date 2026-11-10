@@ -5,6 +5,11 @@
         "title": "Tap Electric",
         "description": "Paste an access token for your Tap account (see README / CAPTURE_TOKEN.md).",
         "data": { "refresh_token": "Access token" }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Tap Electric",
+        "description": "Your access token expired or was revoked. Paste a fresh one (see CAPTURE_TOKEN.md).",
+        "data": { "refresh_token": "Access token" }
       }
     },
     "error": {
@@ -12,7 +17,10 @@
       "cannot_connect": "Could not reach the Tap Electric API.",
       "unknown": "Unexpected error."
     },
-    "abort": { "already_configured": "This Tap Electric account is already set up." }
+    "abort": {
+      "already_configured": "This Tap Electric account is already set up.",
+      "reauth_successful": "Re-authentication was successful."
+    }
   },
   "options": {
     "step": {
@@ -20,7 +28,8 @@
         "title": "Tap Electric options",
         "description": "Charging notifications are Android-only. Enable them and pick one or more companion-app devices.",
         "data": {
-          "scan_interval": "Poll interval (seconds)",
+          "scan_interval": "Poll interval while charging (seconds)",
+          "idle_scan_interval": "Poll interval while idle (seconds)",
           "notify_enabled": "Send live charging notifications",
           "notify_targets": "Notify these devices"
         }

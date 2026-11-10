@@ -16,14 +16,16 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class TapCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    """Polls /4.0/home for the live charging session(s)."""
+    """Polls /4.0/home, fast while charging and slowly while idle."""
 
-    def __init__(self, hass, client, scan_interval: int) -> None:
+    def __init__(self, hass, client, active_interval: int, idle_interval: int) -> None:
         super().__init__(
             hass, _LOGGER, name=DOMAIN,
-            update_interval=timedelta(seconds=scan_interval),
+            update_interval=timedelta(seconds=idle_interval),
         )
         self.client = client
+        self._active_interval = active_interval
+        self._idle_interval = idle_interval
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
@@ -32,7 +34,13 @@ class TapCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise ConfigEntryAuthFailed(str(err)) from err
         except TapApiError as err:
             raise UpdateFailed(str(err)) from err
-        return {"active_sessions": home.get("active_sessions") or [], "home": home}
+        sessions = home.get("active_sessions") or []
+        charging = any(s.get("is_active") for s in sessions)
+        # Poll quickly while charging, back off to the idle interval otherwise.
+        self.update_interval = timedelta(
+            seconds=self._active_interval if charging else self._idle_interval
+        )
+        return {"active_sessions": sessions, "home": home}
 
 
 def _ym(iso: str | None):

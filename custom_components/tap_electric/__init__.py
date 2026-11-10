@@ -10,10 +10,12 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import TapElectricClient
 from .const import (
+    CONF_IDLE_SCAN_INTERVAL,
     CONF_NOTIFY_ENABLED,
     CONF_NOTIFY_TARGETS,
     CONF_REFRESH_TOKEN,
     CONF_SCAN_INTERVAL,
+    DEFAULT_IDLE_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
@@ -30,7 +32,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await client.async_fetch_account()
 
     scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-    live = TapCoordinator(hass, client, scan_interval)
+    idle_interval = entry.options.get(CONF_IDLE_SCAN_INTERVAL, DEFAULT_IDLE_SCAN_INTERVAL)
+    live = TapCoordinator(hass, client, scan_interval, idle_interval)
     insights = TapInsightsCoordinator(hass, client)
     await live.async_config_entry_first_refresh()
     await insights.async_config_entry_first_refresh()

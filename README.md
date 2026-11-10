@@ -43,11 +43,16 @@ One **Tap Electric** device:
 
 ## Options
 Integration → **Configure**:
-- **Poll interval** (default 60s).
+- **Poll interval while charging** (default 60s) and **while idle** (default 5 min).
+  The integration polls quickly during a session and backs off when nothing is
+  happening, so it's light on the API.
 - **Live charging notifications (Android)** — enable and pick one or more
   companion-app devices. While charging you get a single *ongoing*, silently
   self-updating notification (since / speed / kWh / cost / €-per-kWh); it turns
   into a dismissable summary when the session ends.
+
+If your access token is ever revoked (password change, sign-out-everywhere),
+Home Assistant prompts you to paste a new one — no need to remove the integration.
 
 ## Notes
 - Unofficial; relies on app behaviour that can change, so a Tap app update may
