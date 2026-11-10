@@ -3,18 +3,28 @@
     "step": {
       "user": {
         "title": "Tap Electric",
-        "description": "Paste the refresh token captured from the Tap app (see README).",
-        "data": { "refresh_token": "Refresh token" }
+        "description": "Paste an access token for your Tap account (see README / CAPTURE_TOKEN.md).",
+        "data": { "refresh_token": "Access token" }
       }
     },
     "error": {
-      "invalid_token": "That refresh token was rejected. Capture a fresh one.",
+      "invalid_token": "That token was rejected. Capture a fresh one.",
       "cannot_connect": "Could not reach the Tap Electric API.",
       "unknown": "Unexpected error."
     },
     "abort": { "already_configured": "This Tap Electric account is already set up." }
   },
   "options": {
-    "step": { "init": { "data": { "scan_interval": "Poll interval (seconds)" } } }
+    "step": {
+      "init": {
+        "title": "Tap Electric options",
+        "description": "Charging notifications are Android-only. Enable them and pick one or more companion-app devices.",
+        "data": {
+          "scan_interval": "Poll interval (seconds)",
+          "notify_enabled": "Send live charging notifications",
+          "notify_targets": "Notify these devices"
+        }
+      }
+    }
   }
 }

@@ -9,10 +9,13 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import TapApiError, TapAuthError, TapElectricClient
 from .const import (
+    CONF_NOTIFY_ENABLED,
+    CONF_NOTIFY_TARGETS,
     CONF_REFRESH_TOKEN,
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
@@ -57,34 +60,50 @@ class TapConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
 
         schema = vol.Schema({vol.Required(CONF_REFRESH_TOKEN): str})
-        return self.async_show_form(
-            step_id="user", data_schema=schema, errors=errors
-        )
+        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
     @staticmethod
     @callback
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
-    ) -> TapOptionsFlow:
+    ) -> "TapOptionsFlow":
         return TapOptionsFlow()
 
 
 class TapOptionsFlow(config_entries.OptionsFlow):
-    """Allow changing the poll interval."""
+    """Poll interval + Android charging notifications."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
-        current = self.config_entry.options.get(
-            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+
+        opts = self.config_entry.options
+        notify_services = sorted(
+            self.hass.services.async_services().get("notify", {}).keys()
         )
         schema = vol.Schema(
             {
-                vol.Optional(CONF_SCAN_INTERVAL, default=current): vol.All(
-                    int, vol.Range(min=15, max=3600)
-                )
+                vol.Optional(
+                    CONF_SCAN_INTERVAL,
+                    default=opts.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                ): vol.All(int, vol.Range(min=15, max=3600)),
+                vol.Optional(
+                    CONF_NOTIFY_ENABLED,
+                    default=opts.get(CONF_NOTIFY_ENABLED, False),
+                ): bool,
+                vol.Optional(
+                    CONF_NOTIFY_TARGETS,
+                    default=opts.get(CONF_NOTIFY_TARGETS, []),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=notify_services,
+                        multiple=True,
+                        custom_value=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

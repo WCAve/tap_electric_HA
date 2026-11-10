@@ -42,7 +42,12 @@ One **Tap Electric** device:
   **Session start**
 
 ## Options
-Integration → **Configure** → poll interval (default 60s).
+Integration → **Configure**:
+- **Poll interval** (default 60s).
+- **Live charging notifications (Android)** — enable and pick one or more
+  companion-app devices. While charging you get a single *ongoing*, silently
+  self-updating notification (since / speed / kWh / cost / €-per-kWh); it turns
+  into a dismissable summary when the session ends.
 
 ## Notes
 - Unofficial; relies on app behaviour that can change, so a Tap app update may
