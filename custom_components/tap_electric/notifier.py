@@ -42,6 +42,19 @@ def _price_per_kwh(session: dict) -> float | None:
     return cents / 100 if cents is not None else None
 
 
+def _station(session: dict) -> str | None:
+    """Human station name: street address, falling back to the charger code."""
+    ld = session.get("location_details") or {}
+    return ld.get("address") or ld.get("charger_name")
+
+
+def _where(session: dict) -> str:
+    """Secondary context line: operator and city."""
+    ld = session.get("location_details") or {}
+    parts = [ld.get("operator_name"), ld.get("city")]
+    return " · ".join(p for p in parts if p)
+
+
 class TapChargingNotifier:
     """Watches the live coordinator and maintains one companion-app notification."""
 
@@ -79,24 +92,24 @@ class TapChargingNotifier:
             self._was_charging = False
             self.hass.async_create_task(self._notify_finished(session or self._last))
 
-    def _body_ongoing(self, s: dict) -> str:
+    def _summary_ongoing(self, s: dict) -> str:
         speed = s.get("speed_kw") or 0
         energy = s.get("energy_kwh") or 0
         cost = (s.get("current_costs") or 0) / 100
         price = _price_per_kwh(s)
-        lines = [
-            f"Charging since {_fmt_since(s)}",
-            f"Speed: {speed:.1f} kW",
-            f"Charged: {energy:.2f} kWh",
-            f"Cost: €{cost:.2f}",
-        ]
+        line1 = f"{speed:.1f} kW · {energy:.2f} kWh · €{cost:.2f}"
+        second = [f"since {_fmt_since(s)}"]
         if price is not None:
-            lines.append(f"Price: €{price:.3f}/kWh")
+            second.insert(0, f"€{price:.3f}/kWh")
+        lines = [line1, " · ".join(second)]
+        where = _where(s)
+        if where:
+            lines.append(where)
         return "\n".join(lines)
 
     async def _notify_ongoing(self, s: dict) -> None:
-        charger = (s.get("location_details") or {}).get("charger_name")
-        title = f"⚡ Charging — {charger}" if charger else "⚡ Charging"
+        station = _station(s)
+        title = f"⚡ Charging — {station}" if station else "⚡ Charging"
         data = {
             "tag": self._tag,
             "persistent": True,
@@ -107,14 +120,20 @@ class TapChargingNotifier:
             "color": "#13C2C2",
             "notification_icon": "mdi:ev-station",
         }
-        await self._send(title, self._body_ongoing(s), data)
+        await self._send(title, self._summary_ongoing(s), data)
 
     async def _notify_finished(self, s: dict | None) -> None:
         if s:
+            station = _station(s)
+            title = f"✅ Charged — {station}" if station else "✅ Charging finished"
             energy = s.get("energy_kwh") or 0
             cost = (s.get("current_costs") or 0) / 100
-            message = f"Charged {energy:.2f} kWh · €{cost:.2f} · {_duration(s)}"
+            message = f"{energy:.2f} kWh · €{cost:.2f} · {_duration(s)}"
+            where = _where(s)
+            if where:
+                message += f"\n{where}"
         else:
+            title = "✅ Charging finished"
             message = "Session ended."
         data = {
             "tag": self._tag,
@@ -124,7 +143,7 @@ class TapChargingNotifier:
             "color": "#13C2C2",
             "notification_icon": "mdi:ev-station",
         }
-        await self._send("Charging finished", message, data)
+        await self._send(title, message, data)
 
     async def _send(self, title: str, message: str, data: dict[str, Any]) -> None:
         for target in self.targets:
