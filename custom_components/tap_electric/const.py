@@ -22,3 +22,7 @@ CONF_IDLE_SCAN_INTERVAL = "idle_scan_interval"
 DEFAULT_IDLE_SCAN_INTERVAL = 300  # seconds (slower polling when not charging)
 CONF_NOTIFY_ENABLED = "notify_enabled"
 CONF_NOTIFY_TARGETS = "notify_targets"
+CONF_PRECOND_SETTLE_MIN = "precond_settle_minutes"
+DEFAULT_PRECOND_SETTLE_MIN = 15  # minutes of no power after a charge = "settled"
+CONF_PRECOND_MIN_POWER = "precond_min_power"
+DEFAULT_PRECOND_MIN_POWER = 0.1  # kW; draw above this counts as "pulling power"

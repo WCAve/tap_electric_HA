@@ -4,12 +4,16 @@
       "user": {
         "title": "Tap Electric",
         "description": "Plak een toegangstoken voor je Tap-account (zie README / CAPTURE_TOKEN.md).",
-        "data": { "refresh_token": "Toegangstoken" }
+        "data": {
+          "refresh_token": "Toegangstoken"
+        }
       },
       "reauth_confirm": {
         "title": "Opnieuw aanmelden bij Tap Electric",
         "description": "Je toegangstoken is verlopen of ingetrokken. Plak een nieuw token (zie CAPTURE_TOKEN.md).",
-        "data": { "refresh_token": "Toegangstoken" }
+        "data": {
+          "refresh_token": "Toegangstoken"
+        }
       }
     },
     "error": {
@@ -30,6 +34,8 @@
         "data": {
           "scan_interval": "Pollinterval tijdens het laden (seconden)",
           "idle_scan_interval": "Pollinterval in rust (seconden)",
+          "precond_settle_minutes": "Voorconditioneren: minuten rust na het laden",
+          "precond_min_power": "Voorconditioneren: minimaal vermogen (kW)",
           "notify_enabled": "Stuur live laadmeldingen",
           "notify_targets": "Stuur naar deze apparaten"
         }

@@ -165,6 +165,7 @@ async def async_setup_entry(
     insights: TapInsightsCoordinator = data["insights"]
     entities: list[SensorEntity] = [TapSensor(live, entry, d) for d in SENSORS]
     entities += [TapInsightsSensor(insights, entry, d) for d in INSIGHTS_SENSORS]
+    entities += [TapPrecondSensor(live, entry, d) for d in PRECOND_SENSORS]
     async_add_entities(entities)
 
 
@@ -185,6 +186,10 @@ class TapSensor(CoordinatorEntity[TapCoordinator], SensorEntity):
 
     @property
     def native_value(self) -> Any:
+        if self.entity_description.key == "status":
+            precond = self.coordinator.data.get("precond") or {}
+            if precond.get("active"):
+                return "Preconditioning"
         return self.entity_description.value_fn(self._session)
 
     @property
@@ -223,3 +228,40 @@ class TapInsightsSensor(CoordinatorEntity[TapInsightsCoordinator], SensorEntity)
         data = self.coordinator.data or {}
         period = data.get(self.entity_description.period) or {}
         return period.get(self.entity_description.metric)
+
+
+@dataclass(frozen=True, kw_only=True)
+class TapPrecondDescription(SensorEntityDescription):
+    value_fn: Callable[[dict], Any]
+
+
+PRECOND_SENSORS: tuple[TapPrecondDescription, ...] = (
+    TapPrecondDescription(
+        key="precond_last", name="Last preconditioning",
+        device_class=SensorDeviceClass.TIMESTAMP, icon="mdi:car-seat-heater",
+        value_fn=lambda p: p.get("last")),
+    TapPrecondDescription(
+        key="precond_today", name="Preconditioning today",
+        state_class=SensorStateClass.MEASUREMENT, icon="mdi:counter",
+        value_fn=lambda p: p.get("today")),
+    TapPrecondDescription(
+        key="precond_week", name="Preconditioning this week",
+        state_class=SensorStateClass.MEASUREMENT, icon="mdi:counter",
+        value_fn=lambda p: p.get("week")),
+)
+
+
+class TapPrecondSensor(CoordinatorEntity[TapCoordinator], SensorEntity):
+    _attr_has_entity_name = True
+    entity_description: TapPrecondDescription
+
+    def __init__(self, coordinator, entry, description) -> None:
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        self._attr_device_info = _device(entry)
+
+    @property
+    def native_value(self) -> Any:
+        precond = self.coordinator.data.get("precond") or {}
+        return self.entity_description.value_fn(precond)

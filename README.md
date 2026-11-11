@@ -40,6 +40,8 @@ One **Tap Electric** device:
 - **Charging status**, **Session energy** (kWh), **Charging power** (kW),
   **Session cost**, **Price per kWh**, **Charger**, **Operator**, **Location**,
   **Session start**
+- **Preconditioning** (binary), **Last preconditioning**, **Preconditioning today / this week** —
+  detects cabin heat/cool: power drawn after a charge has finished and settled.
 
 ## Options
 Integration → **Configure**:

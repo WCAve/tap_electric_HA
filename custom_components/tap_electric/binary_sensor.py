@@ -19,7 +19,12 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator: TapCoordinator = hass.data[DOMAIN][entry.entry_id]["live"]
-    async_add_entities([TapChargingBinarySensor(coordinator, entry)])
+    async_add_entities(
+        [
+            TapChargingBinarySensor(coordinator, entry),
+            TapPreconditioningBinarySensor(coordinator, entry),
+        ]
+    )
 
 
 class TapChargingBinarySensor(CoordinatorEntity[TapCoordinator], BinarySensorEntity):
@@ -41,3 +46,29 @@ class TapChargingBinarySensor(CoordinatorEntity[TapCoordinator], BinarySensorEnt
     def is_on(self) -> bool:
         sessions = self.coordinator.data.get("active_sessions") or []
         return any(s.get("is_active") for s in sessions)
+
+
+class TapPreconditioningBinarySensor(CoordinatorEntity[TapCoordinator], BinarySensorEntity):
+    _attr_has_entity_name = True
+    _attr_name = "Preconditioning"
+    _attr_device_class = BinarySensorDeviceClass.RUNNING
+    _attr_icon = "mdi:car-seat-heater"
+
+    def __init__(self, coordinator: TapCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_preconditioning"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="Tap Electric",
+            manufacturer="Tap Electric",
+            model="Charging session",
+        )
+
+    @property
+    def is_on(self) -> bool:
+        return bool((self.coordinator.data.get("precond") or {}).get("active"))
+
+    @property
+    def extra_state_attributes(self) -> dict | None:
+        p = self.coordinator.data.get("precond") or {}
+        return {"state": p.get("state"), "last": p.get("last")}
