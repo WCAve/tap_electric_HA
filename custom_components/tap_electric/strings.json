@@ -37,7 +37,8 @@
           "precond_settle_minutes": "Preconditioning: minutes idle after charge",
           "precond_min_power": "Preconditioning: minimum power (kW)",
           "notify_enabled": "Send live charging notifications",
-          "notify_targets": "Notify these devices"
+          "notify_targets": "Notify these devices",
+          "notify_energy_step": "Notification update step (kWh)"
         }
       }
     }

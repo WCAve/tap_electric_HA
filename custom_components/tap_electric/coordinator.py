@@ -135,10 +135,10 @@ class TapCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         power = max((s.get("speed_kw") or 0) for s in sessions) if sessions else 0.0
         drawing = power >= self._min_power
-        charging = any(s.get("is_active") for s in sessions)
-        # Poll quickly whenever power is flowing (charge OR precondition).
+        # Poll quickly only while power is actually flowing; back off while idle
+        # (even if still plugged in, since is_active stays true the whole time).
         self.update_interval = timedelta(
-            seconds=self._active_interval if (charging or drawing) else self._idle_interval
+            seconds=self._active_interval if drawing else self._idle_interval
         )
         return {
             "active_sessions": sessions,

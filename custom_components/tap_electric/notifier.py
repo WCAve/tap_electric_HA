@@ -1,8 +1,12 @@
-"""Drives the Android companion-app live charging notification.
+"""Drives the Android companion-app charging notification.
 
-While a session is active it posts an ongoing (persistent, non-dismissable)
-notification under a fixed tag, alerting once and then updating silently on each
-poll. When charging stops it re-posts the same tag as a dismissable summary.
+Keeps a single ongoing (persistent, sticky) notification for as long as the car
+is connected, with content driven by the preconditioning state machine
+(charging / connected-idle / preconditioning). To stay well under the companion
+app's 500-push/day cap, it only RE-SENDS when something meaningful changes: a
+state transition, the station, or the session energy advancing by a configurable
+step. While the car sits idle-plugged, nothing is sent and the pinned
+notification simply stays put. On disconnect it posts a dismissable summary.
 """
 from __future__ import annotations
 
@@ -12,7 +16,14 @@ from typing import Any
 from homeassistant.core import callback
 from homeassistant.util import dt as dt_util
 
-from .coordinator import TapCoordinator
+from .coordinator import (
+    PC_AWAITING,
+    PC_CHARGING,
+    PC_DISCONNECTED,
+    PC_PRECONDITIONING,
+    PC_SETTLED,
+    TapCoordinator,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,30 +54,35 @@ def _price_per_kwh(session: dict) -> float | None:
 
 
 def _station(session: dict) -> str | None:
-    """Human station name: street address, falling back to the charger code."""
     ld = session.get("location_details") or {}
     return ld.get("address") or ld.get("charger_name")
 
 
 def _where(session: dict) -> str:
-    """Secondary context line: operator and city."""
     ld = session.get("location_details") or {}
-    parts = [ld.get("operator_name"), ld.get("city")]
-    return " · ".join(p for p in parts if p)
+    return " · ".join(p for p in (ld.get("operator_name"), ld.get("city")) if p)
 
 
 class TapChargingNotifier:
-    """Watches the live coordinator and maintains one companion-app notification."""
+    """Maintains one companion-app notification across a plugged-in session."""
 
-    def __init__(self, hass, entry, coordinator: TapCoordinator, targets: list[str]) -> None:
+    def __init__(self, hass, entry, coordinator: TapCoordinator, targets: list[str],
+                 energy_step: float = 0.5) -> None:
         self.hass = hass
         self.entry = entry
         self.coordinator = coordinator
         self.targets = targets
+        self._energy_step = energy_step
         self._tag = f"tap_charging_{entry.entry_id}"
-        self._was_charging = False
-        self._last: dict | None = None
         self._unsub = None
+        self._reset()
+
+    def _reset(self) -> None:
+        self._shown = False
+        self._last_state = None
+        self._last_station = None
+        self._last_energy_sent = -1.0
+        self._last_session: dict | None = None
 
     def start(self) -> None:
         self._unsub = self.coordinator.async_add_listener(self._handle)
@@ -81,18 +97,36 @@ class TapChargingNotifier:
     def _handle(self) -> None:
         if not self.targets:
             return
-        sessions = (self.coordinator.data or {}).get("active_sessions") or []
+        data = self.coordinator.data or {}
+        state = (data.get("precond") or {}).get("state")
+        sessions = data.get("active_sessions") or []
         session = sessions[0] if sessions else None
-        charging = bool(session and session.get("is_active"))
-        if charging:
-            self._last = session
-            self._was_charging = True
-            self.hass.async_create_task(self._notify_ongoing(session))
-        elif self._was_charging:
-            self._was_charging = False
-            self.hass.async_create_task(self._notify_finished(session or self._last))
 
-    def _summary_ongoing(self, s: dict) -> str:
+        if state in (None, PC_DISCONNECTED):
+            if self._shown:
+                self.hass.async_create_task(self._notify_finished(self._last_session))
+            self._reset()
+            return
+
+        # Connected (plugged in). Decide whether anything worth re-sending changed.
+        self._last_session = session
+        energy = (session or {}).get("energy_kwh") or 0.0
+        station = _station(session or {})
+        advancing = state in (PC_CHARGING, PC_PRECONDITIONING)
+        resend = (
+            not self._shown
+            or state != self._last_state
+            or station != self._last_station
+            or (advancing and energy - self._last_energy_sent >= self._energy_step)
+        )
+        if resend:
+            self._last_state = state
+            self._last_station = station
+            self._last_energy_sent = energy
+            self._shown = True
+            self.hass.async_create_task(self._notify_connected(session, state))
+
+    def _metrics(self, s: dict) -> str:
         speed = s.get("speed_kw") or 0
         energy = s.get("energy_kwh") or 0
         cost = (s.get("current_costs") or 0) / 100
@@ -107,9 +141,27 @@ class TapChargingNotifier:
             lines.append(where)
         return "\n".join(lines)
 
-    async def _notify_ongoing(self, s: dict) -> None:
+    def _complete_body(self, s: dict) -> str:
+        energy = s.get("energy_kwh") or 0
+        cost = (s.get("current_costs") or 0) / 100
+        lines = [f"Charge complete · {energy:.2f} kWh · €{cost:.2f}"]
+        where = _where(s)
+        if where:
+            lines.append(where)
+        return "\n".join(lines)
+
+    async def _notify_connected(self, s: dict | None, state: str) -> None:
+        s = s or {}
         station = _station(s)
-        title = f"⚡ Charging — {station}" if station else "⚡ Charging"
+        if state == PC_CHARGING:
+            emoji, label, body = "⚡", "Charging", self._metrics(s)
+        elif state == PC_PRECONDITIONING:
+            emoji, label, body = "🔥", "Preconditioning", self._metrics(s)
+        elif state == PC_SETTLED:
+            emoji, label, body = "🔌", "Connected", self._complete_body(s)
+        else:  # PC_AWAITING
+            emoji, label, body = "🔌", "Connected", "Plugged in — waiting to charge"
+        title = f"{emoji} {label} — {station}" if station else f"{emoji} {label}"
         data = {
             "tag": self._tag,
             "persistent": True,
@@ -120,12 +172,12 @@ class TapChargingNotifier:
             "color": "#13C2C2",
             "notification_icon": "mdi:ev-station",
         }
-        await self._send(title, self._summary_ongoing(s), data)
+        await self._send(title, body, data)
 
     async def _notify_finished(self, s: dict | None) -> None:
         if s:
             station = _station(s)
-            title = f"✅ Charged — {station}" if station else "✅ Charging finished"
+            title = f"✅ Charged — {station}" if station else "✅ Session finished"
             energy = s.get("energy_kwh") or 0
             cost = (s.get("current_costs") or 0) / 100
             message = f"{energy:.2f} kWh · €{cost:.2f} · {_duration(s)}"
@@ -133,12 +185,12 @@ class TapChargingNotifier:
             if where:
                 message += f"\n{where}"
         else:
-            title = "✅ Charging finished"
-            message = "Session ended."
+            title, message = "✅ Session finished", "Unplugged."
         data = {
             "tag": self._tag,
             "persistent": False,
             "sticky": False,
+            "alert_once": True,
             "channel": "Tap Electric charging",
             "color": "#13C2C2",
             "notification_icon": "mdi:ev-station",

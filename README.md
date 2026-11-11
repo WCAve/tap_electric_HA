@@ -51,7 +51,10 @@ Integration → **Configure**:
 - **Live charging notifications (Android)** — enable and pick one or more
   companion-app devices. While charging you get a single *ongoing*, silently
   self-updating notification (since / speed / kWh / cost / €-per-kWh); it turns
-  into a dismissable summary when the session ends.
+  into a dismissable summary when you unplug. It stays pinned the whole time the
+  car is connected and only re-sends on a meaningful change (a kWh step, default
+  0.5 kWh, or a state change) to stay well under the companion app's 500/day push
+  cap. **Notification update step** tunes that kWh threshold.
 
 If your access token is ever revoked (password change, sign-out-everywhere),
 Home Assistant prompts you to paste a new one — no need to remove the integration.

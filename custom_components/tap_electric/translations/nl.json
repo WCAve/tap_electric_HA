@@ -37,7 +37,8 @@
           "precond_settle_minutes": "Voorconditioneren: minuten rust na het laden",
           "precond_min_power": "Voorconditioneren: minimaal vermogen (kW)",
           "notify_enabled": "Stuur live laadmeldingen",
-          "notify_targets": "Stuur naar deze apparaten"
+          "notify_targets": "Stuur naar deze apparaten",
+          "notify_energy_step": "Melding-updatestap (kWh)"
         }
       }
     }

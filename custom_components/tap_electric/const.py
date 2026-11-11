@@ -22,6 +22,8 @@ CONF_IDLE_SCAN_INTERVAL = "idle_scan_interval"
 DEFAULT_IDLE_SCAN_INTERVAL = 300  # seconds (slower polling when not charging)
 CONF_NOTIFY_ENABLED = "notify_enabled"
 CONF_NOTIFY_TARGETS = "notify_targets"
+CONF_NOTIFY_ENERGY_STEP = "notify_energy_step"
+DEFAULT_NOTIFY_ENERGY_STEP = 0.5  # kWh added before the live notification re-sends
 CONF_PRECOND_SETTLE_MIN = "precond_settle_minutes"
 DEFAULT_PRECOND_SETTLE_MIN = 15  # minutes of no power after a charge = "settled"
 CONF_PRECOND_MIN_POWER = "precond_min_power"

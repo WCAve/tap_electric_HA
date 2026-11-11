@@ -16,10 +16,12 @@ from .api import TapApiError, TapAuthError, TapElectricClient
 from .const import (
     CONF_IDLE_SCAN_INTERVAL,
     CONF_NOTIFY_ENABLED,
+    CONF_NOTIFY_ENERGY_STEP,
     CONF_NOTIFY_TARGETS,
     CONF_REFRESH_TOKEN,
     CONF_SCAN_INTERVAL,
     DEFAULT_IDLE_SCAN_INTERVAL,
+    DEFAULT_NOTIFY_ENERGY_STEP,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
@@ -133,7 +135,8 @@ class TapOptionsFlow(config_entries.OptionsFlow):
                     default=opts.get(CONF_NOTIFY_ENABLED, False),
                 ): bool,
                 vol.Optional(
-                    CONF_NOTIFY_TARGETS,
+                    CONF_NOTIFY_ENERGY_STEP,
+    CONF_NOTIFY_TARGETS,
                     default=opts.get(CONF_NOTIFY_TARGETS, []),
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(

@@ -13,6 +13,7 @@ from .api import TapElectricClient
 from .const import (
     CONF_IDLE_SCAN_INTERVAL,
     CONF_NOTIFY_ENABLED,
+    CONF_NOTIFY_ENERGY_STEP,
     CONF_NOTIFY_TARGETS,
     CONF_PRECOND_MIN_POWER,
     CONF_PRECOND_SETTLE_MIN,
@@ -20,6 +21,7 @@ from .const import (
     CONF_SCAN_INTERVAL,
     DEFAULT_IDLE_SCAN_INTERVAL,
     DEFAULT_PRECOND_MIN_POWER,
+    DEFAULT_NOTIFY_ENERGY_STEP,
     DEFAULT_PRECOND_SETTLE_MIN,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -53,7 +55,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     notifier: TapChargingNotifier | None = None
     targets = entry.options.get(CONF_NOTIFY_TARGETS) or []
     if entry.options.get(CONF_NOTIFY_ENABLED) and targets:
-        notifier = TapChargingNotifier(hass, entry, live, targets)
+        energy_step = entry.options.get(CONF_NOTIFY_ENERGY_STEP, DEFAULT_NOTIFY_ENERGY_STEP)
+        notifier = TapChargingNotifier(hass, entry, live, targets, energy_step)
         notifier.start()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
