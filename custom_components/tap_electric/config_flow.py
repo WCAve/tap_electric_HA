@@ -15,13 +15,18 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import TapApiError, TapAuthError, TapElectricClient
 from .const import (
     CONF_IDLE_SCAN_INTERVAL,
+    CONF_NOTIFY_CLICK_ACTION,
     CONF_NOTIFY_ENABLED,
     CONF_NOTIFY_ENERGY_STEP,
     CONF_NOTIFY_TARGETS,
+    CONF_PRECOND_MIN_POWER,
+    CONF_PRECOND_SETTLE_MIN,
     CONF_REFRESH_TOKEN,
     CONF_SCAN_INTERVAL,
     DEFAULT_IDLE_SCAN_INTERVAL,
     DEFAULT_NOTIFY_ENERGY_STEP,
+    DEFAULT_PRECOND_MIN_POWER,
+    DEFAULT_PRECOND_SETTLE_MIN,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
@@ -35,6 +40,26 @@ async def _validate_token(hass, token: str) -> TapElectricClient:
     client = TapElectricClient(async_get_clientsession(hass), refresh_token=token.strip())
     await client.async_validate()
     return client
+
+
+def _dashboard_paths(hass) -> list[str]:
+    """Best-effort list of Lovelace dashboard paths for the tap-action dropdown.
+
+    Wrapped defensively: whatever happens, the options form must still render.
+    """
+    paths = ["/lovelace"]
+    try:
+        lovelace = hass.data.get("lovelace")
+        dashboards = getattr(lovelace, "dashboards", None)
+        if dashboards is None and isinstance(lovelace, dict):
+            dashboards = lovelace.get("dashboards")
+        if isinstance(dashboards, dict):
+            for url_path in dashboards:
+                if url_path and f"/{url_path}" not in paths:
+                    paths.append(f"/{url_path}")
+    except Exception:  # noqa: BLE001
+        pass
+    return paths
 
 
 class TapConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -108,7 +133,7 @@ class TapConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class TapOptionsFlow(config_entries.OptionsFlow):
-    """Poll intervals + Android charging notifications."""
+    """Poll intervals, preconditioning thresholds, and Android notifications."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -120,6 +145,8 @@ class TapOptionsFlow(config_entries.OptionsFlow):
         notify_services = sorted(
             self.hass.services.async_services().get("notify", {}).keys()
         )
+        dashboards = _dashboard_paths(self.hass)
+
         schema = vol.Schema(
             {
                 vol.Optional(
@@ -131,17 +158,38 @@ class TapOptionsFlow(config_entries.OptionsFlow):
                     default=opts.get(CONF_IDLE_SCAN_INTERVAL, DEFAULT_IDLE_SCAN_INTERVAL),
                 ): vol.All(int, vol.Range(min=60, max=3600)),
                 vol.Optional(
+                    CONF_PRECOND_SETTLE_MIN,
+                    default=opts.get(CONF_PRECOND_SETTLE_MIN, DEFAULT_PRECOND_SETTLE_MIN),
+                ): vol.All(int, vol.Range(min=1, max=120)),
+                vol.Optional(
+                    CONF_PRECOND_MIN_POWER,
+                    default=opts.get(CONF_PRECOND_MIN_POWER, DEFAULT_PRECOND_MIN_POWER),
+                ): vol.All(vol.Coerce(float), vol.Range(min=0.01, max=10.0)),
+                vol.Optional(
                     CONF_NOTIFY_ENABLED,
                     default=opts.get(CONF_NOTIFY_ENABLED, False),
                 ): bool,
                 vol.Optional(
-                    CONF_NOTIFY_ENERGY_STEP,
-    CONF_NOTIFY_TARGETS,
+                    CONF_NOTIFY_TARGETS,
                     default=opts.get(CONF_NOTIFY_TARGETS, []),
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=notify_services,
                         multiple=True,
+                        custom_value=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(
+                    CONF_NOTIFY_ENERGY_STEP,
+                    default=opts.get(CONF_NOTIFY_ENERGY_STEP, DEFAULT_NOTIFY_ENERGY_STEP),
+                ): vol.All(vol.Coerce(float), vol.Range(min=0.05, max=10.0)),
+                vol.Optional(
+                    CONF_NOTIFY_CLICK_ACTION,
+                    default=opts.get(CONF_NOTIFY_CLICK_ACTION, ""),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=dashboards,
                         custom_value=True,
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )

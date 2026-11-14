@@ -38,7 +38,8 @@
           "precond_min_power": "Voorconditioneren: minimaal vermogen (kW)",
           "notify_enabled": "Stuur live laadmeldingen",
           "notify_targets": "Stuur naar deze apparaten",
-          "notify_energy_step": "Melding-updatestap (kWh)"
+          "notify_energy_step": "Melding-updatestap (kWh)",
+          "notify_click_action": "Tik-actie: open dit dashboard"
         }
       }
     }

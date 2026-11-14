@@ -67,12 +67,13 @@ class TapChargingNotifier:
     """Maintains one companion-app notification across a plugged-in session."""
 
     def __init__(self, hass, entry, coordinator: TapCoordinator, targets: list[str],
-                 energy_step: float = 0.5) -> None:
+                 energy_step: float = 0.5, click_action: str = "") -> None:
         self.hass = hass
         self.entry = entry
         self.coordinator = coordinator
         self.targets = targets
         self._energy_step = energy_step
+        self._click_action = click_action
         self._tag = f"tap_charging_{entry.entry_id}"
         self._unsub = None
         self._reset()
@@ -172,6 +173,8 @@ class TapChargingNotifier:
             "color": "#13C2C2",
             "notification_icon": "mdi:ev-station",
         }
+        if self._click_action:
+            data["clickAction"] = self._click_action
         await self._send(title, body, data)
 
     async def _notify_finished(self, s: dict | None) -> None:
@@ -195,6 +198,8 @@ class TapChargingNotifier:
             "color": "#13C2C2",
             "notification_icon": "mdi:ev-station",
         }
+        if self._click_action:
+            data["clickAction"] = self._click_action
         await self._send(title, message, data)
 
     async def _send(self, title: str, message: str, data: dict[str, Any]) -> None:
