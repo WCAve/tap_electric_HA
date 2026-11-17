@@ -3,11 +3,11 @@
   "name": "Tap Electric",
   "codeowners": ["@WCAve"],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": ["http", "frontend"],
   "documentation": "https://github.com/WCAve/tap_electric_HA",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/WCAve/tap_electric_HA/issues",
   "requirements": [],
-  "version": "0.7.0"
+  "version": "0.8.0"
 }

@@ -2,12 +2,10 @@
  * Tap Electric - Recent Sessions Card
  * A self-contained Lovelace custom card. No build step, no dependencies.
  *
- * Install:
- *   1. Copy this file to  <config>/www/tap-recent-sessions-card.js
- *   2. Settings -> Dashboards -> (top-right menu) Resources -> Add resource
- *        URL: /local/tap-recent-sessions-card.js
- *        Type: JavaScript module
- *   3. Add a card:  type: custom:tap-recent-sessions-card
+ * This file is served and auto-registered by the Tap Electric integration,
+ * so there is nothing to install manually. Just add a card:
+ *
+ *   type: custom:tap-recent-sessions-card
  *
  * Config:
  *   type:    custom:tap-recent-sessions-card   (required)
@@ -16,7 +14,7 @@
  *   limit:   10                                   (optional, max rows to show)
  */
 
-const CARD_VERSION = "0.7.0";
+const CARD_VERSION = "0.8.0";
 
 class TapRecentSessionsCard extends HTMLElement {
   static getStubConfig() {
