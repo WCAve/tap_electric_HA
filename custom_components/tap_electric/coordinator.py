@@ -207,6 +207,59 @@ def summarize_insights(data: Any) -> dict[str, dict]:
     return result
 
 
+def recent_sessions(data: Any, limit: int = 10) -> list[dict]:
+    """Flatten the per-session history from /insights, newest first.
+
+    The insights payload nests a `sessions` list inside each month summary.
+    We pull them all out, sort by start time (newest first), de-duplicate by
+    session id, and keep the most recent `limit`. Each entry is a compact,
+    display-ready dict for a Lovelace card.
+    """
+    if not isinstance(data, dict):
+        return []
+    summaries = data.get("summaries") or {}
+    months = summaries.get("EUR")
+    if months is None:
+        months = next((v for v in summaries.values() if isinstance(v, list)), [])
+
+    seen: set[str] = set()
+    out: list[dict] = []
+    for m in months or []:
+        if not isinstance(m, dict):
+            continue
+        for s in m.get("sessions") or []:
+            if not isinstance(s, dict):
+                continue
+            sid = s.get("id") or ""
+            if sid and sid in seen:
+                continue
+            if sid:
+                seen.add(sid)
+            final_ct = s.get("final_cost_incl_vat_ct")
+            cost_ct = final_ct if final_ct is not None else s.get("current_cost_incl_vat_ct")
+            cost = round((cost_ct or 0) / 100, 2)
+            kwh = round(s.get("kwh") or 0.0, 2)
+            # Per-session cost_per_kwh from the API is scaled oddly (EUR/kWh x1e4),
+            # so derive it from cost/kWh instead - same EUR scale as `cost`.
+            price = round(cost / kwh, 3) if kwh else 0.0
+            out.append(
+                {
+                    "id": sid,
+                    "start": s.get("start_date_time"),
+                    "end": s.get("end_date_time"),
+                    "ongoing": s.get("end_date_time") is None,
+                    "operator": s.get("operator"),
+                    "city": s.get("city"),
+                    "address": s.get("address"),
+                    "kwh": kwh,
+                    "cost": cost,
+                    "cost_per_kwh": price,
+                }
+            )
+    out.sort(key=lambda e: e.get("start") or "", reverse=True)
+    return out[:limit]
+
+
 class TapInsightsCoordinator(DataUpdateCoordinator[dict[str, dict]]):
     """Polls /1.0/insights hourly; exposes month + lifetime aggregates."""
 
@@ -224,4 +277,6 @@ class TapInsightsCoordinator(DataUpdateCoordinator[dict[str, dict]]):
             raise ConfigEntryAuthFailed(str(err)) from err
         except TapApiError as err:
             raise UpdateFailed(str(err)) from err
-        return summarize_insights(raw)
+        result = summarize_insights(raw)
+        result["recent_sessions"] = recent_sessions(raw, limit=10)
+        return result

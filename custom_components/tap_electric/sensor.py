@@ -165,6 +165,7 @@ async def async_setup_entry(
     insights: TapInsightsCoordinator = data["insights"]
     entities: list[SensorEntity] = [TapSensor(live, entry, d) for d in SENSORS]
     entities += [TapInsightsSensor(insights, entry, d) for d in INSIGHTS_SENSORS]
+    entities.append(TapRecentSessionsSensor(insights, entry))
     entities += [TapPrecondSensor(live, entry, d) for d in PRECOND_SENSORS]
     async_add_entities(entities)
 
@@ -228,6 +229,39 @@ class TapInsightsSensor(CoordinatorEntity[TapInsightsCoordinator], SensorEntity)
         data = self.coordinator.data or {}
         period = data.get(self.entity_description.period) or {}
         return period.get(self.entity_description.metric)
+
+
+class TapRecentSessionsSensor(CoordinatorEntity[TapInsightsCoordinator], SensorEntity):
+    """Last ~10 charging sessions, exposed as a `sessions` attribute for a card."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:history"
+
+    def __init__(self, coordinator, entry) -> None:
+        super().__init__(coordinator)
+        self._attr_name = "Recent sessions"
+        self._attr_unique_id = f"{entry.entry_id}_recent_sessions"
+        self._attr_device_info = _device(entry)
+
+    @property
+    def _sessions(self) -> list[dict]:
+        return (self.coordinator.data or {}).get("recent_sessions") or []
+
+    @property
+    def native_value(self) -> int:
+        return len(self._sessions)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        sessions = self._sessions
+        attrs: dict[str, Any] = {"sessions": sessions}
+        if sessions:
+            latest = sessions[0]
+            attrs["last_start"] = latest.get("start")
+            attrs["last_kwh"] = latest.get("kwh")
+            attrs["last_cost"] = latest.get("cost")
+            attrs["last_location"] = latest.get("city") or latest.get("operator")
+        return attrs
 
 
 @dataclass(frozen=True, kw_only=True)

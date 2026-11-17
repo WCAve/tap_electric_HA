@@ -1,0 +1,13 @@
+type: markdown
+title: Recent charging sessions
+content: >
+  {% set sessions = state_attr('sensor.tap_electric_recent_sessions', 'sessions') or [] %}
+  {% if sessions | count == 0 %}
+  _No sessions yet._
+  {% else %}
+  | Date | Where | kWh | € | €/kWh |
+  |------|-------|----:|----:|------:|
+  {% for s in sessions -%}
+  | {{ as_timestamp(s.start) | timestamp_custom('%d %b %H:%M') }}{{ ' ⚡' if s.ongoing else '' }} | {{ s.address or s.city or s.operator }}{{ ', ' ~ s.city if s.address and s.city else '' }} | {{ '%.1f' | format(s.kwh) }} | {{ '%.2f' | format(s.cost) }} | {{ '%.3f' | format(s.cost_per_kwh) }} |
+  {% endfor %}
+  {% endif %}
